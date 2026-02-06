@@ -9,3 +9,5 @@ Homestead.json
 Homestead.yaml
 npm-debug.log
 .env
+*.sql
+pfs_new/backend/migrations/psf.sql
