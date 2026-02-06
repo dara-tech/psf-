@@ -11,3 +11,6 @@ npm-debug.log
 .env
 *.sql
 pfs_new/backend/migrations/psf.sql
+*.json
+pfs_new/backend/photoai-*.json
+**/photoai-*.json
