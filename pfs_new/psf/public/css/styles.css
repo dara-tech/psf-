@@ -1,0 +1,46 @@
+body {
+    /*padding-top: 20px;*/
+    padding-bottom: 20px;
+    font-family: 'Hanuman', serif;
+}
+
+.navbar {
+    margin-bottom: 20px;
+}
+.bg-light {
+    background-color:white!important;
+}
+
+.header 
+{
+    padding-top: 25px;
+    padding-bottom: 25px;
+}
+
+.section
+{
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.question
+{
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+.cardbox
+{
+    border-radius: 25px;
+    background-color: lightgrey;
+    padding-top: 2%;
+    padding-bottom: 2%;
+    border: 10px;
+    border-color: black;
+}
+
+.btn
+{
+    min-width: 200px;
+    border-radius:25px
+}

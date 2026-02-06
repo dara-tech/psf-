@@ -1,0 +1,15 @@
+# Production Deployment List
+# Only deploy files listed here to production server
+
+# REQUIRED - Main fix for production
+app/Providers/AppServiceProvider.php
+
+# DO NOT DEPLOY THESE (Local PHP 8.3 compatibility only):
+# vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php
+# vendor/nesbot/carbon/src/Carbon/Carbon.php
+# bootstrap/autoload.php (optional, not needed for PHP 7.x)
+# bootstrap/app.php (optional, not needed for PHP 7.x)
+# public/index.php (optional, not needed for PHP 7.x)
+# app/Exceptions/Handler.php (optional, not needed for PHP 7.x)
+
+
