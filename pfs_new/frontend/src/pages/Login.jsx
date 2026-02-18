@@ -16,6 +16,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [logoUrl, setLogoUrl] = useState(null);
   const navigate = useNavigate();
   const { setUser, setToken, setPermissions, setRoles } = useAuthStore();
   const { locale, theme, toggleTheme, initTheme, setLocale } = useUIStore();
@@ -24,6 +25,43 @@ export default function Login() {
   useEffect(() => {
     initTheme();
   }, [initTheme]);
+
+  // Load logo on mount and refresh periodically
+  useEffect(() => {
+    const loadLogo = async () => {
+      try {
+        // Use public settings endpoint (no auth required)
+        // Add timestamp to prevent caching
+        const response = await api.get('/settings/logo', {
+          params: { _t: Date.now() }
+        });
+        if (response.data.logoUrl) {
+          setLogoUrl(response.data.logoUrl + '?t=' + Date.now());
+        }
+      } catch (error) {
+        // If logo endpoint fails or no logo set, use default
+        console.error('Failed to load logo:', error);
+      }
+    };
+    
+    loadLogo();
+    
+    // Listen for logo updates from settings page
+    const handleLogoUpdate = (event) => {
+      if (event.detail?.logoUrl) {
+        setLogoUrl(event.detail.logoUrl);
+      }
+    };
+    window.addEventListener('logoUpdated', handleLogoUpdate);
+    
+    // Refresh logo every 30 seconds to pick up changes
+    const interval = setInterval(loadLogo, 30000);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('logoUpdated', handleLogoUpdate);
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -88,9 +126,16 @@ export default function Login() {
               <div className="relative">
                 <div className="h-32 w-32 rounded-full border-4 border-primary/20 bg-white p-2 shadow-lg flex items-center justify-center overflow-hidden">
                   <img 
-                    src="https://tse2.mm.bing.net/th/id/OIP.m5Zpyrf5a2AjwderAqj26QHaHa?rs=1&pid=ImgDetMain&o=7&rm=3" 
+                    key={logoUrl || 'default'} 
+                    src={logoUrl || "https://tse2.mm.bing.net/th/id/OIP.m5Zpyrf5a2AjwderAqj26QHaHa?rs=1&pid=ImgDetMain&o=7&rm=3"} 
                     alt="Logo" 
                     className="h-full w-full object-contain rounded-full"
+                    onError={(e) => {
+                      // Fallback to default if custom logo fails to load
+                      if (logoUrl) {
+                        e.target.src = "https://tse2.mm.bing.net/th/id/OIP.m5Zpyrf5a2AjwderAqj26QHaHa?rs=1&pid=ImgDetMain&o=7&rm=3";
+                      }
+                    }}
                   />
                 </div>
               </div>

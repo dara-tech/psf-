@@ -1,20 +1,28 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useUIStore } from '../lib/stores/uiStore';
 import { useAuthStore } from '../lib/store';
 import { t } from '../lib/translations/index';
 import api from '../lib/api';
-import { cn } from '../lib/utils';
 import Sidebar from './Sidebar';
 import ThemeToggle from './ThemeToggle';
 import LanguageToggle from './LanguageToggle';
 import FullscreenToggle from './FullscreenToggle';
 import InstallAppButton from './InstallAppButton';
 import { Button } from './ui/button';
+import { SidebarProvider, useSidebar, SidebarInset } from './ui/sidebar';
 import { FaBars } from 'react-icons/fa';
 
-export default function Layout({ children }) {
-  const { sidebarOpen, toggleSidebar, sidebarCollapsed, initTheme, initLocale, locale } = useUIStore();
+const SIDEBAR_COOKIE_NAME = 'sidebar_state';
+function getDefaultSidebarOpen() {
+  if (typeof document === 'undefined') return true;
+  const match = document.cookie.match(new RegExp(`${SIDEBAR_COOKIE_NAME}=([^;]+)`));
+  return match ? match[1] !== 'false' : true;
+}
+
+function LayoutContent({ children }) {
+  const { initTheme, initLocale, locale } = useUIStore();
   const { token, setPermissions, setRoles } = useAuthStore();
+  const { toggleSidebar } = useSidebar();
 
   // Initialize theme and locale on mount
   useEffect(() => {
@@ -41,18 +49,12 @@ export default function Layout({ children }) {
   }, [token, setPermissions, setRoles]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
       <Sidebar />
-      
-      {/* Main content */}
-      <div
-        className={cn(
-          'transition-all duration-300 ease-in-out',
-          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-        )}
-      >
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 flex h-14 sm:h-16 items-center gap-2 sm:gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-3 sm:px-6 shadow-sm">
+      <SidebarInset>
+        <div className="flex min-h-svh w-full flex-col bg-background">
+          {/* Top bar */}
+          <header className="sticky top-0 z-30 flex h-14 sm:h-16 items-center gap-2 sm:gap-4 border-b bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 px-3 sm:px-6 shadow-sm">
           <Button
             variant="ghost"
             size="icon"
@@ -78,12 +80,22 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="p-3 sm:p-4 lg:p-6">
-          {children}
-        </main>
-      </div>
-    </div>
+          {/* Page content */}
+          <main className="flex-1 p-3 sm:p-4 lg:p-6">
+            {children}
+          </main>
+        </div>
+      </SidebarInset>
+    </>
+  );
+}
+
+export default function Layout({ children }) {
+  const [defaultOpen] = useState(getDefaultSidebarOpen);
+  return (
+    <SidebarProvider defaultOpen={defaultOpen}>
+      <LayoutContent>{children}</LayoutContent>
+    </SidebarProvider>
   );
 }
 

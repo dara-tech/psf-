@@ -1,6 +1,9 @@
 import bcrypt from 'bcrypt';
 import { sequelize } from '../config/database.js';
 import { Question } from '../models/Question.js';
+import { Settings } from '../models/Settings.js';
+import { Device } from '../models/Device.js';
+import { uploadImage, deleteImage, extractPublicId } from '../services/cloudinaryService.js';
 
 // Users
 export const getUsers = async (req, res) => {
@@ -724,3 +727,497 @@ export const uploadQuestionAudio = async (req, res) => {
     res.status(500).json({ error: 'Failed to upload audio: ' + error.message });
   }
 };
+
+// Settings - Get logo URL
+export const getLogo = async (req, res) => {
+  try {
+    const setting = await Settings.findByPk('app_logo_url');
+    const logoUrl = setting ? setting.value : null;
+    res.json({ logoUrl });
+  } catch (error) {
+    console.error('Get logo error:', error);
+    res.status(500).json({ error: 'Failed to get logo' });
+  }
+};
+
+// Settings - Update logo URL
+export const updateLogo = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file uploaded' });
+    }
+
+    // Get current logo URL to delete old one
+    const currentSetting = await Settings.findByPk('app_logo_url');
+    let oldPublicId = null;
+    if (currentSetting && currentSetting.value) {
+      oldPublicId = extractPublicId(currentSetting.value);
+    }
+
+    // Upload new logo to Cloudinary
+    const uploadResult = await uploadImage(
+      req.file.buffer,
+      req.file.originalname,
+      'app-assets',
+      'app_logo'
+    );
+
+    // Save logo URL to settings
+    const [setting, created] = await Settings.findOrCreate({
+      where: { key: 'app_logo_url' },
+      defaults: {
+        key: 'app_logo_url',
+        value: uploadResult.url,
+        description: 'Application logo URL'
+      }
+    });
+
+    if (!created) {
+      setting.value = uploadResult.url;
+      await setting.save();
+    }
+
+    // Delete old logo from Cloudinary if it exists
+    if (oldPublicId && oldPublicId !== uploadResult.public_id) {
+      try {
+        await deleteImage(oldPublicId);
+      } catch (deleteError) {
+        console.error('Failed to delete old logo:', deleteError);
+        // Don't fail the request if deletion fails
+      }
+    }
+
+    res.json({
+      success: true,
+      logoUrl: uploadResult.url,
+      message: 'Logo updated successfully'
+    });
+  } catch (error) {
+    console.error('Update logo error:', error);
+    res.status(500).json({ error: 'Failed to update logo: ' + error.message });
+  }
+};
+
+// Settings - Reset logo to default
+export const resetLogo = async (req, res) => {
+  try {
+    const setting = await Settings.findByPk('app_logo_url');
+    
+    if (setting && setting.value) {
+      // Delete current logo from Cloudinary
+      const publicId = extractPublicId(setting.value);
+      if (publicId) {
+        try {
+          await deleteImage(publicId);
+        } catch (deleteError) {
+          console.error('Failed to delete logo:', deleteError);
+        }
+      }
+      
+      // Delete setting
+      await setting.destroy();
+    }
+
+    res.json({
+      success: true,
+      message: 'Logo reset to default'
+    });
+  } catch (error) {
+    console.error('Reset logo error:', error);
+    res.status(500).json({ error: 'Failed to reset logo' });
+  }
+};
+
+// Settings - Get app icon URL
+export const getAppIcon = async (req, res) => {
+  try {
+    const setting = await Settings.findByPk('app_icon_url');
+    const iconUrl = setting ? setting.value : null;
+    res.json({ iconUrl });
+  } catch (error) {
+    console.error('Get app icon error:', error);
+    res.status(500).json({ error: 'Failed to get app icon' });
+  }
+};
+
+// Settings - Update app icon URL
+export const updateAppIcon = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file uploaded' });
+    }
+
+    // Get current icon URL to delete old one
+    const currentSetting = await Settings.findByPk('app_icon_url');
+    let oldPublicId = null;
+    if (currentSetting && currentSetting.value) {
+      oldPublicId = extractPublicId(currentSetting.value);
+    }
+
+    // Upload new icon to Cloudinary
+    const uploadResult = await uploadImage(
+      req.file.buffer,
+      req.file.originalname,
+      'app-assets',
+      'app_icon'
+    );
+
+    // Save icon URL to settings
+    const [setting, created] = await Settings.findOrCreate({
+      where: { key: 'app_icon_url' },
+      defaults: {
+        key: 'app_icon_url',
+        value: uploadResult.url,
+        description: 'Application icon URL (for mobile app)'
+      }
+    });
+
+    if (!created) {
+      setting.value = uploadResult.url;
+      await setting.save();
+    }
+
+    // Delete old icon from Cloudinary if it exists
+    if (oldPublicId && oldPublicId !== uploadResult.public_id) {
+      try {
+        await deleteImage(oldPublicId);
+      } catch (deleteError) {
+        console.error('Failed to delete old icon:', deleteError);
+      }
+    }
+
+    res.json({
+      success: true,
+      iconUrl: uploadResult.url,
+      message: 'App icon updated successfully. Note: Mobile app needs to be rebuilt for icon to change.'
+    });
+  } catch (error) {
+    console.error('Update app icon error:', error);
+    res.status(500).json({ error: 'Failed to update app icon: ' + error.message });
+  }
+};
+
+// Settings - Reset app icon to default
+export const resetAppIcon = async (req, res) => {
+  try {
+    const setting = await Settings.findByPk('app_icon_url');
+    
+    if (setting && setting.value) {
+      // Delete current icon from Cloudinary
+      const publicId = extractPublicId(setting.value);
+      if (publicId) {
+        try {
+          await deleteImage(publicId);
+        } catch (deleteError) {
+          console.error('Failed to delete icon:', deleteError);
+        }
+      }
+      
+      // Delete setting
+      await setting.destroy();
+    }
+
+    res.json({
+      success: true,
+      message: 'App icon reset to default'
+    });
+  } catch (error) {
+    console.error('Reset app icon error:', error);
+    res.status(500).json({ error: 'Failed to reset app icon' });
+  }
+};
+
+// Devices - Get all devices
+export const getDevices = async (req, res) => {
+  try {
+    const [devices] = await sequelize.query(`
+      SELECT d.*, s.sitename as site_name
+      FROM devices d
+      LEFT JOIN tbl_sites s ON d.site_id = s.id
+      ORDER BY d.created_at DESC
+    `);
+    res.json(devices);
+  } catch (error) {
+    console.error('Get devices error:', error);
+    res.status(500).json({ error: 'Failed to get devices' });
+  }
+};
+
+// Devices - Create device
+export const createDevice = async (req, res) => {
+  try {
+    const { name, device_id, device_type, platform, site_id, status, notes } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Device name is required' });
+    }
+
+    // Check if device_id already exists
+    if (device_id) {
+      const [existing] = await sequelize.query(
+        'SELECT id FROM devices WHERE device_id = ?',
+        { replacements: [device_id] }
+      );
+      if (existing.length > 0) {
+        return res.status(400).json({ error: 'Device ID already exists' });
+      }
+    }
+
+    const [result] = await sequelize.query(
+      `INSERT INTO devices (name, device_id, device_type, platform, site_id, status, notes, created_at, updated_at)
+       VALUES (:name, :device_id, :device_type, :platform, :site_id, :status, :notes, NOW(), NOW())`,
+      {
+        replacements: {
+          name,
+          device_id: device_id || null,
+          device_type: device_type || 'tablet',
+          platform: platform || 'android',
+          site_id: site_id || null,
+          status: status || 'active',
+          notes: notes || null
+        }
+      }
+    );
+
+    const [newDevice] = await sequelize.query(
+      `SELECT d.*, s.sitename as site_name
+       FROM devices d
+       LEFT JOIN tbl_sites s ON d.site_id = s.id
+       WHERE d.id = ?`,
+      { replacements: [result.insertId] }
+    );
+
+    res.status(201).json(newDevice[0]);
+  } catch (error) {
+    console.error('Create device error:', error);
+    res.status(500).json({ error: 'Failed to create device: ' + error.message });
+  }
+};
+
+// Devices - Update device
+export const updateDevice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, device_id, device_type, platform, site_id, status, notes } = req.body;
+
+    // Check if device exists
+    const [existing] = await sequelize.query(
+      'SELECT id FROM devices WHERE id = ?',
+      { replacements: [id] }
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    // Check if device_id already exists (excluding current device)
+    if (device_id) {
+      const [duplicate] = await sequelize.query(
+        'SELECT id FROM devices WHERE device_id = ? AND id != ?',
+        { replacements: [device_id, id] }
+      );
+      if (duplicate.length > 0) {
+        return res.status(400).json({ error: 'Device ID already exists' });
+      }
+    }
+
+    await sequelize.query(
+      `UPDATE devices 
+       SET name = :name, device_id = :device_id, device_type = :device_type, 
+           platform = :platform, site_id = :site_id, status = :status, 
+           notes = :notes, updated_at = NOW()
+       WHERE id = :id`,
+      {
+        replacements: {
+          id,
+          name,
+          device_id: device_id || null,
+          device_type: device_type || 'tablet',
+          platform: platform || 'android',
+          site_id: site_id || null,
+          status: status || 'active',
+          notes: notes || null
+        }
+      }
+    );
+
+    const [updatedDevice] = await sequelize.query(
+      `SELECT d.*, s.sitename as site_name
+       FROM devices d
+       LEFT JOIN tbl_sites s ON d.site_id = s.id
+       WHERE d.id = ?`,
+      { replacements: [id] }
+    );
+
+    res.json(updatedDevice[0]);
+  } catch (error) {
+    console.error('Update device error:', error);
+    res.status(500).json({ error: 'Failed to update device: ' + error.message });
+  }
+};
+
+// Devices - Delete device
+export const deleteDevice = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if device exists
+    const [existing] = await sequelize.query(
+      'SELECT id FROM devices WHERE id = ?',
+      { replacements: [id] }
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    await sequelize.query(
+      'DELETE FROM devices WHERE id = ?',
+      { replacements: [id] }
+    );
+
+    res.json({ success: true, message: 'Device deleted successfully' });
+  } catch (error) {
+    console.error('Delete device error:', error);
+    res.status(500).json({ error: 'Failed to delete device: ' + error.message });
+  }
+};
+
+// APK Management - Upload APK
+export const uploadApk = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No APK file uploaded' });
+    }
+
+    // Validate file extension
+    if (!req.file.originalname.toLowerCase().endsWith('.apk')) {
+      return res.status(400).json({ error: 'Invalid file type. Only APK files are allowed.' });
+    }
+
+    const fs = await import('fs');
+    const path = await import('path');
+    const { fileURLToPath } = await import('url');
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
+    const downloadsDir = path.join(__dirname, '../../public/downloads');
+    
+    // Ensure directory exists
+    if (!fs.existsSync(downloadsDir)) {
+      fs.mkdirSync(downloadsDir, { recursive: true });
+    }
+
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const filename = `psf-mobile-${timestamp}.apk`;
+    const filePath = path.join(downloadsDir, filename);
+
+    // Save file
+    fs.writeFileSync(filePath, req.file.buffer);
+
+    // Get file info
+    const stats = fs.statSync(filePath);
+
+    res.json({
+      success: true,
+      message: 'APK uploaded successfully',
+      filename,
+      size: stats.size,
+      sizeFormatted: formatFileSize(stats.size),
+      url: `/api/downloads/apk`
+    });
+  } catch (error) {
+    console.error('Upload APK error:', error);
+    res.status(500).json({ error: 'Failed to upload APK: ' + error.message });
+  }
+};
+
+// APK Management - Get APK info
+export const getApkInfo = async (req, res) => {
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const { fileURLToPath } = await import('url');
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
+    const downloadsDir = path.join(__dirname, '../../public/downloads');
+    
+    if (!fs.existsSync(downloadsDir)) {
+      return res.json({ available: false, message: 'No APK file available' });
+    }
+
+    const files = fs.readdirSync(downloadsDir);
+    const apkFiles = files.filter(file => file.toLowerCase().endsWith('.apk'));
+
+    if (apkFiles.length === 0) {
+      return res.json({ available: false, message: 'No APK file available' });
+    }
+
+    // Get all APK files with stats
+    const apkFilesWithStats = apkFiles.map(file => {
+      const filePath = path.join(downloadsDir, file);
+      const stats = fs.statSync(filePath);
+      return { 
+        filename: file, 
+        size: stats.size,
+        sizeFormatted: formatFileSize(stats.size),
+        modified: stats.mtime,
+        url: `/api/downloads/apk`
+      };
+    });
+
+    // Sort by modification time (newest first)
+    apkFilesWithStats.sort((a, b) => b.modified - a.modified);
+
+    res.json({
+      available: true,
+      files: apkFilesWithStats,
+      latest: apkFilesWithStats[0]
+    });
+  } catch (error) {
+    console.error('Get APK info error:', error);
+    res.status(500).json({ error: 'Failed to get APK info: ' + error.message });
+  }
+};
+
+// APK Management - Delete APK
+export const deleteApk = async (req, res) => {
+  try {
+    const { filename } = req.params;
+    
+    if (!filename || !filename.toLowerCase().endsWith('.apk')) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    const fs = await import('fs');
+    const path = await import('path');
+    const { fileURLToPath } = await import('url');
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
+    const filePath = path.join(__dirname, '../../public/downloads', filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'APK file not found' });
+    }
+
+    fs.unlinkSync(filePath);
+
+    res.json({
+      success: true,
+      message: 'APK deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete APK error:', error);
+    res.status(500).json({ error: 'Failed to delete APK: ' + error.message });
+  }
+};
+
+// Helper function to format file size
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}

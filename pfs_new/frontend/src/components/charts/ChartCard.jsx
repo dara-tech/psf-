@@ -32,7 +32,9 @@ export default function ChartCard({
   domain,
   locale = 'en',
   defaultChartType = 'bar',
-  formatter
+  formatter,
+  /** When set, render grouped bars (one per item); each item: { dataKey, label? }. Uses nameKey for X axis. */
+  bars = null
 }) {
   const [chartType, setChartType] = useState(defaultChartType);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -41,6 +43,10 @@ export default function ChartCard({
   if (!data || data.length === 0) return null;
 
   const color = CHART_COLORS[colorIndex % CHART_COLORS.length];
+  const isMultiBar = bars && Array.isArray(bars) && bars.length > 0;
+  const chartConfig = isMultiBar
+    ? Object.fromEntries(bars.map((b, idx) => [b.dataKey, { label: b.label ?? b.dataKey, color: CHART_COLORS[(colorIndex + idx) % CHART_COLORS.length] }]))
+    : { [dataKey]: { label: dataKey, color } };
 
   const renderChart = (isFullscreenMode = false) => {
     switch (chartType) {
@@ -53,7 +59,7 @@ export default function ChartCard({
               tickLine={false} 
               tickMargin={10} 
               axisLine={false}
-              angle={0}
+              angle={angle}
               textAnchor="middle"
             />
             <YAxis 
@@ -63,7 +69,40 @@ export default function ChartCard({
               domain={domain}
             />
             <ChartTooltip content={<ChartTooltipContent />} formatter={formatter} />
-            <Bar dataKey={dataKey} fill={color} radius={8} />
+            {isMultiBar ? (
+              <>
+                {bars.map((b, idx) => (
+                  <Bar 
+                    key={b.dataKey} 
+                    dataKey={b.dataKey} 
+                    name={b.label ?? b.dataKey} 
+                    fill={CHART_COLORS[(colorIndex + idx) % CHART_COLORS.length]} 
+                    radius={8} 
+                  />
+                ))}
+                <Legend
+                  content={({ payload }) => (
+                    <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-2">
+                      {payload && payload.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-3">
+                          {payload.map((entry) => (
+                            <span key={entry.value} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <span
+                                className="inline-block w-3 h-3 rounded-sm flex-shrink-0"
+                                style={{ backgroundColor: entry.color }}
+                              />
+                              <span>{entry.value}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                />
+              </>
+            ) : (
+              <Bar dataKey={dataKey} fill={color} radius={8} />
+            )}
           </BarChart>
         );
 
@@ -285,9 +324,7 @@ export default function ChartCard({
         <Card className="border-primary/20 shadow-xl shadow-primary/5 backdrop-blur-sm bg-card/95 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10 hover:border-primary/30 hover:-translate-y-1">
           <CardContent className="p-6">
             <ChartContainer
-              config={{
-                [dataKey]: { label: dataKey, color }
-              }}
+              config={chartConfig}
               className="h-[300px]"
               style={{ height: `${height}px` }}
             >
@@ -410,9 +447,7 @@ export default function ChartCard({
             <Card className="border-primary/20 shadow-xl shadow-primary/5 backdrop-blur-sm bg-card/95 w-full h-full">
               <CardContent className="p-8 h-full flex items-center justify-center">
                 <ChartContainer
-                  config={{
-                    [dataKey]: { label: dataKey, color }
-                  }}
+                  config={chartConfig}
                   className="w-full h-full"
                   style={{ 
                     height: 'calc(100vh - 180px)', 

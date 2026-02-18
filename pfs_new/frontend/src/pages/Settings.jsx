@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ColorPicker } from '../components/ui/color-picker';
-import { FaCog, FaLock, FaUnlock, FaInfoCircle, FaPalette, FaUndo, FaCheck, FaMagic, FaFont, FaPaintBrush, FaChartBar, FaShieldAlt, FaKey, FaDatabase, FaDownload, FaUpload, FaExclamationTriangle, FaCheckCircle } from 'react-icons/fa';
+import { FaCog, FaLock, FaUnlock, FaInfoCircle, FaPalette, FaUndo, FaCheck, FaMagic, FaFont, FaPaintBrush, FaChartBar, FaShieldAlt, FaKey, FaDatabase, FaDownload, FaUpload, FaExclamationTriangle, FaCheckCircle, FaImage, FaTrash, FaMobile, FaAndroid } from 'react-icons/fa';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '../components/ui/chart';
@@ -248,6 +248,91 @@ export default function Settings() {
   });
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [editingChartIndex, setEditingChartIndex] = useState(null);
+  const [logoUrl, setLogoUrl] = useState(null);
+  const [logoLoading, setLogoLoading] = useState(false);
+  const [logoError, setLogoError] = useState('');
+  const [logoSuccess, setLogoSuccess] = useState('');
+  const [selectedLogoFile, setSelectedLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [appIconUrl, setAppIconUrl] = useState(null);
+  const [appIconLoading, setAppIconLoading] = useState(false);
+  const [appIconError, setAppIconError] = useState('');
+  const [appIconSuccess, setAppIconSuccess] = useState('');
+  const [selectedAppIconFile, setSelectedAppIconFile] = useState(null);
+  const [appIconPreview, setAppIconPreview] = useState(null);
+  
+  // APK Management state
+  const [apkInfo, setApkInfo] = useState(null);
+  const [apkLoading, setApkLoading] = useState(false);
+  const [apkError, setApkError] = useState('');
+  const [apkSuccess, setApkSuccess] = useState('');
+  const [apkFile, setApkFile] = useState(null);
+  const [apkDeleteDialog, setApkDeleteDialog] = useState(false);
+  const [apkToDelete, setApkToDelete] = useState(null);
+  
+  // Load logo on mount
+  useEffect(() => {
+    const loadLogo = async () => {
+      try {
+        // Add timestamp to prevent caching
+        const response = await api.get('/admin/settings/logo', {
+          params: { _t: Date.now() }
+        });
+        if (response.data.logoUrl) {
+          setLogoUrl(response.data.logoUrl + '?t=' + Date.now());
+        }
+      } catch (error) {
+        console.error('Failed to load logo:', error);
+      }
+    };
+    loadLogo();
+    
+    // Listen for logo updates from other tabs/windows
+    const handleLogoUpdate = (event) => {
+      if (event.detail?.logoUrl) {
+        setLogoUrl(event.detail.logoUrl);
+      }
+    };
+    window.addEventListener('logoUpdated', handleLogoUpdate);
+    
+    return () => {
+      window.removeEventListener('logoUpdated', handleLogoUpdate);
+    };
+  }, []);
+
+  // Load app icon on mount
+  useEffect(() => {
+    const loadAppIcon = async () => {
+      try {
+        const response = await api.get('/admin/settings/app-icon', {
+          params: { _t: Date.now() }
+        });
+        if (response.data.iconUrl) {
+          setAppIconUrl(response.data.iconUrl + '?t=' + Date.now());
+        }
+      } catch (error) {
+        console.error('Failed to load app icon:', error);
+      }
+    };
+    loadAppIcon();
+    
+    // Load APK info
+    const loadApkInfo = async () => {
+      try {
+        const response = await api.get('/admin/apk');
+        if (response.data?.available) {
+          setApkInfo(response.data);
+        } else {
+          setApkInfo(null);
+        }
+      } catch (error) {
+        console.error('Error loading APK info:', error);
+        setApkInfo(null);
+      }
+    };
+    loadApkInfo();
+  }, []);
+
   // Update local state when chartColors change
   useEffect(() => {
     setLocalChartColors({
@@ -622,6 +707,345 @@ export default function Settings() {
                       0123456789 !@#$%^&*()
                     </div>
                   </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Logo Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FaImage className="h-5 w-5 text-primary" />
+                {t(locale, 'admin.settings.logoSettings') || 'Logo Settings'}
+              </CardTitle>
+              <CardDescription>
+                {t(locale, 'admin.settings.logoSettingsDescription') || 'Upload and manage your application logo'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 sm:space-y-6">
+              {logoError && (
+                <Alert variant="destructive">
+                  <FaExclamationTriangle className="h-4 w-4" />
+                  <AlertDescription>{logoError}</AlertDescription>
+                </Alert>
+              )}
+              {logoSuccess && (
+                <Alert className="border-2 border-green-500 bg-green-50 dark:bg-green-950">
+                  <FaCheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800 dark:text-green-200 font-medium">
+                    {logoSuccess}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Current Logo Preview */}
+              {(logoUrl || logoPreview) && (
+                <div className="flex flex-col items-center gap-4 p-4 rounded-lg border bg-muted/50">
+                  <Label className="text-sm sm:text-base font-semibold">
+                    {t(locale, 'admin.settings.currentLogo') || 'Current Logo'}
+                  </Label>
+                  <div className="relative">
+                    <div className="h-32 w-32 rounded-full border-4 border-primary/20 bg-white p-2 shadow-lg flex items-center justify-center overflow-hidden">
+                      <img 
+                        src={logoPreview || logoUrl} 
+                        alt="Logo" 
+                        className="h-full w-full object-contain rounded-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Logo Upload */}
+              <div className="space-y-3 sm:space-y-4">
+                <Label htmlFor="logo-upload" className="text-sm sm:text-base font-semibold">
+                  {t(locale, 'admin.settings.uploadLogo') || 'Upload New Logo'}
+                </Label>
+                <div className="space-y-2">
+                  <Input
+                    id="logo-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setSelectedLogoFile(file);
+                        setLogoError('');
+                        setLogoSuccess('');
+                        // Create preview
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setLogoPreview(reader.result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="cursor-pointer h-12 sm:h-14 text-sm sm:text-base file:mr-2 sm:file:mr-4 file:py-1.5 sm:file:py-2 file:px-2 sm:file:px-4 file:rounded-md file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                  />
+                  {selectedLogoFile && (
+                    <div className="mt-2 sm:mt-3 p-2.5 sm:p-3 rounded-lg bg-muted border-2 border-primary/20">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-1.5 sm:p-2 rounded bg-primary/10 shrink-0">
+                          <FaImage className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-xs sm:text-sm truncate">{selectedLogoFile.name}</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
+                            {(selectedLogoFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <Button
+                    onClick={async () => {
+                      if (!selectedLogoFile) {
+                        setLogoError(t(locale, 'admin.settings.noFileSelected') || 'Please select a logo file');
+                        return;
+                      }
+                      setLogoLoading(true);
+                      setLogoError('');
+                      setLogoSuccess('');
+                      try {
+                        const formData = new FormData();
+                        formData.append('logo', selectedLogoFile);
+                        const response = await api.post('/admin/settings/logo', formData, {
+                          headers: {
+                            'Content-Type': 'multipart/form-data',
+                          },
+                        });
+                        // Add timestamp to prevent caching
+                        const logoUrlWithTimestamp = response.data.logoUrl + '?t=' + Date.now();
+                        setLogoUrl(logoUrlWithTimestamp);
+                        setLogoSuccess(t(locale, 'admin.settings.logoUpdated') || 'Logo updated successfully');
+                        setSelectedLogoFile(null);
+                        setLogoPreview(null);
+                        // Reset file input
+                        const fileInput = document.getElementById('logo-upload');
+                        if (fileInput) fileInput.value = '';
+                        setTimeout(() => setLogoSuccess(''), 3000);
+                        
+                        // Force reload logo on login page by triggering a custom event
+                        window.dispatchEvent(new CustomEvent('logoUpdated', { detail: { logoUrl: logoUrlWithTimestamp } }));
+                      } catch (err) {
+                        setLogoError(err.response?.data?.error || t(locale, 'admin.settings.logoUpdateFailed') || 'Failed to update logo');
+                      } finally {
+                        setLogoLoading(false);
+                      }
+                    }}
+                    disabled={logoLoading || !selectedLogoFile}
+                    size="lg"
+                    className="flex-1 font-semibold text-sm sm:text-base h-10 sm:h-11"
+                  >
+                    {logoLoading ? (
+                      <>
+                        <span className="animate-spin mr-2">⏳</span>
+                        {t(locale, 'admin.settings.uploading') || 'Uploading...'}
+                      </>
+                    ) : (
+                      <>
+                        <FaUpload className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                        {t(locale, 'admin.settings.uploadLogo') || 'Upload Logo'}
+                      </>
+                    )}
+                  </Button>
+                  {logoUrl && (
+                    <Button
+                      onClick={async () => {
+                        if (!confirm(t(locale, 'admin.settings.resetLogoConfirm') || 'Are you sure you want to reset the logo to default?')) {
+                          return;
+                        }
+                        setLogoLoading(true);
+                        setLogoError('');
+                        setLogoSuccess('');
+                        try {
+                          await api.delete('/admin/settings/logo');
+                          setLogoUrl(null);
+                          setLogoPreview(null);
+                          setLogoSuccess(t(locale, 'admin.settings.logoReset') || 'Logo reset to default');
+                          setTimeout(() => setLogoSuccess(''), 3000);
+                        } catch (err) {
+                          setLogoError(err.response?.data?.error || t(locale, 'admin.settings.logoResetFailed') || 'Failed to reset logo');
+                        } finally {
+                          setLogoLoading(false);
+                        }
+                      }}
+                      disabled={logoLoading}
+                      variant="destructive"
+                      size="lg"
+                      className="flex-1 font-semibold text-sm sm:text-base h-10 sm:h-11"
+                    >
+                      <FaTrash className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                      {t(locale, 'admin.settings.resetLogo') || 'Reset to Default'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* App Icon Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FaImage className="h-5 w-5 text-primary" />
+                {t(locale, 'admin.settings.appIconSettings') || 'App Icon Settings'}
+              </CardTitle>
+              <CardDescription>
+                {t(locale, 'admin.settings.appIconSettingsDescription') || 'Upload app icon for mobile app (requires app rebuild)'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 sm:space-y-6">
+              <Alert>
+                <FaInfoCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {t(locale, 'admin.settings.appIconNote') || 'Note: Changing the app icon requires rebuilding the mobile app. The icon will be stored and can be downloaded for use in app.json.'}
+                </AlertDescription>
+              </Alert>
+
+              {appIconError && (
+                <Alert variant="destructive">
+                  <FaExclamationTriangle className="h-4 w-4" />
+                  <AlertDescription>{appIconError}</AlertDescription>
+                </Alert>
+              )}
+              {appIconSuccess && (
+                <Alert className="border-2 border-green-500 bg-green-50 dark:bg-green-950">
+                  <FaCheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800 dark:text-green-200 font-medium">
+                    {appIconSuccess}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Current App Icon Preview */}
+              {(appIconUrl || appIconPreview) && (
+                <div className="flex flex-col items-center gap-4 p-4 rounded-lg border bg-muted/50">
+                  <Label className="text-sm sm:text-base font-semibold">
+                    {t(locale, 'admin.settings.currentAppIcon') || 'Current App Icon'}
+                  </Label>
+                  <div className="relative">
+                    <div className="h-32 w-32 rounded-lg border-4 border-primary/20 bg-white p-2 shadow-lg flex items-center justify-center overflow-hidden">
+                      <img 
+                        src={appIconPreview || appIconUrl} 
+                        alt="App Icon" 
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+                  </div>
+                  {appIconUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        window.open(appIconUrl, '_blank');
+                      }}
+                    >
+                      <FaDownload className="mr-2 h-4 w-4" />
+                      {t(locale, 'admin.settings.downloadIcon') || 'Download Icon'}
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* App Icon Upload */}
+              <div className="space-y-3 sm:space-y-4">
+                <Label htmlFor="app-icon-upload" className="text-sm sm:text-base font-semibold">
+                  {t(locale, 'admin.settings.uploadAppIcon') || 'Upload New App Icon'}
+                </Label>
+                <div className="space-y-2">
+                  <Input
+                    id="app-icon-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setSelectedAppIconFile(file);
+                        setAppIconError('');
+                        setAppIconSuccess('');
+                        // Create preview
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setAppIconPreview(reader.result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="cursor-pointer h-12 sm:h-14 text-sm sm:text-base file:mr-2 sm:file:mr-4 file:py-1.5 sm:file:py-2 file:px-2 sm:file:px-4 file:rounded-md file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                  />
+                  {selectedAppIconFile && (
+                    <div className="mt-2 sm:mt-3 p-2.5 sm:p-3 rounded-lg bg-muted border-2 border-primary/20">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-1.5 sm:p-2 rounded bg-primary/10 shrink-0">
+                          <FaImage className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-xs sm:text-sm truncate">{selectedAppIconFile.name}</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
+                            {(selectedAppIconFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <Button
+                    onClick={async () => {
+                      if (!selectedAppIconFile) {
+                        setAppIconError(t(locale, 'admin.settings.noFileSelected') || 'Please select an icon file');
+                        return;
+                      }
+                      setAppIconLoading(true);
+                      setAppIconError('');
+                      setAppIconSuccess('');
+                      try {
+                        const formData = new FormData();
+                        formData.append('icon', selectedAppIconFile);
+                        const response = await api.post('/admin/settings/app-icon', formData, {
+                          headers: {
+                            'Content-Type': 'multipart/form-data',
+                          },
+                        });
+                        const iconUrlWithTimestamp = response.data.iconUrl + '?t=' + Date.now();
+                        setAppIconUrl(iconUrlWithTimestamp);
+                        setAppIconSuccess(t(locale, 'admin.settings.appIconUpdated') || 'App icon updated successfully. Rebuild the mobile app to apply changes.');
+                        setSelectedAppIconFile(null);
+                        setAppIconPreview(null);
+                        // Reset file input
+                        const fileInput = document.getElementById('app-icon-upload');
+                        if (fileInput) fileInput.value = '';
+                        setTimeout(() => setAppIconSuccess(''), 5000);
+                      } catch (err) {
+                        setAppIconError(err.response?.data?.error || t(locale, 'admin.settings.appIconUpdateFailed') || 'Failed to update app icon');
+                      } finally {
+                        setAppIconLoading(false);
+                      }
+                    }}
+                    disabled={appIconLoading || !selectedAppIconFile}
+                    size="lg"
+                    className="w-full font-semibold text-sm sm:text-base h-10 sm:h-11"
+                  >
+                    {appIconLoading ? (
+                      <>
+                        <span className="animate-spin mr-2">⏳</span>
+                        {t(locale, 'admin.settings.uploading') || 'Uploading...'}
+                      </>
+                    ) : (
+                      <>
+                        <FaUpload className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                        {t(locale, 'admin.settings.uploadAppIcon') || 'Upload App Icon'}
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -1031,6 +1455,222 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+
+          {/* APK Management Section */}
+          <Card className="border-2 hover:border-primary/50 transition-colors">
+            <CardHeader className="pb-3 sm:pb-4 p-4 sm:p-6">
+              <div className="flex items-start sm:items-center gap-2 sm:gap-3">
+                <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
+                  <FaAndroid className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-lg sm:text-xl">{t(locale, 'admin.settings.apkManagement') || 'APK Management'}</CardTitle>
+                  <CardDescription className="mt-1 text-sm sm:text-base">
+                    {t(locale, 'admin.settings.apkManagementDescription') || 'Upload and manage Android APK files for mobile app distribution'}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6">
+              {apkError && (
+                <Alert variant="destructive" className="border-2">
+                  <FaExclamationTriangle className="h-4 w-4" />
+                  <AlertDescription className="font-medium">{apkError}</AlertDescription>
+                </Alert>
+              )}
+              {apkSuccess && (
+                <Alert className="border-2 border-green-500 bg-green-50 dark:bg-green-950">
+                  <FaCheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800 dark:text-green-200 font-medium">
+                    {apkSuccess}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Current APK Info */}
+              {apkInfo?.latest && (
+                <div className="p-3 sm:p-4 rounded-lg bg-muted/50 border">
+                  <div className="flex items-center justify-between gap-2 sm:gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm sm:text-base">{apkInfo.latest.filename}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                        {t(locale, 'admin.settings.size') || 'Size'}: {apkInfo.latest.sizeFormatted} • {t(locale, 'admin.settings.modified') || 'Modified'}: {new Date(apkInfo.latest.modified).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          window.open(`/api/downloads/apk`, '_blank');
+                        }}
+                        className="gap-2"
+                      >
+                        <FaDownload className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline">{t(locale, 'admin.settings.download') || 'Download'}</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setApkToDelete(apkInfo.latest.filename);
+                          setApkDeleteDialog(true);
+                        }}
+                        className="text-destructive hover:text-destructive gap-2"
+                      >
+                        <FaTrash className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline">{t(locale, 'admin.common.delete') || 'Delete'}</span>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Upload APK */}
+              <div className="space-y-3">
+                <Label htmlFor="apk-upload" className="text-sm sm:text-base">
+                  {t(locale, 'admin.settings.uploadApk') || 'Upload APK File'}
+                </Label>
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <Input
+                    id="apk-upload"
+                    type="file"
+                    accept=".apk"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (!file.name.toLowerCase().endsWith('.apk')) {
+                          setApkError(t(locale, 'admin.settings.apkInvalidFile') || 'Invalid file type. Only APK files are allowed.');
+                          return;
+                        }
+                        setApkFile(file);
+                        setApkError('');
+                      }
+                    }}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={async () => {
+                      if (!apkFile) {
+                        setApkError(t(locale, 'admin.settings.apkNoFileSelected') || 'Please select an APK file');
+                        return;
+                      }
+                      setApkLoading(true);
+                      setApkError('');
+                      setApkSuccess('');
+                      try {
+                        const formData = new FormData();
+                        formData.append('apk', apkFile);
+                        const response = await api.post('/admin/apk', formData, {
+                          headers: {
+                            'Content-Type': 'multipart/form-data',
+                          },
+                        });
+                        setApkSuccess(t(locale, 'admin.settings.apkUploadSuccess') || 'APK uploaded successfully');
+                        setApkFile(null);
+                        // Reset file input
+                        const fileInput = document.getElementById('apk-upload');
+                        if (fileInput) fileInput.value = '';
+                        // Reload APK info
+                        const infoResponse = await api.get('/admin/apk');
+                        if (infoResponse.data?.available) {
+                          setApkInfo(infoResponse.data);
+                        }
+                      } catch (err) {
+                        setApkError(err.response?.data?.error || t(locale, 'admin.settings.apkUploadFailed') || 'Failed to upload APK');
+                      } finally {
+                        setApkLoading(false);
+                      }
+                    }}
+                    disabled={apkLoading || !apkFile}
+                    className="gap-2"
+                  >
+                    {apkLoading ? (
+                      <>
+                        <span className="animate-spin">⏳</span>
+                        {t(locale, 'admin.settings.uploading') || 'Uploading...'}
+                      </>
+                    ) : (
+                      <>
+                        <FaUpload className="h-4 w-4" />
+                        {t(locale, 'admin.settings.upload') || 'Upload'}
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {apkFile && (
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    {t(locale, 'admin.settings.selectedFile') || 'Selected'}: {apkFile.name} ({(apkFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+              </div>
+
+              {!apkInfo?.latest && (
+                <div className="p-3 sm:p-4 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800">
+                  <p className="text-xs sm:text-sm text-amber-800 dark:text-amber-200">
+                    <FaInfoCircle className="inline h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                    {t(locale, 'admin.settings.apkNoFile') || 'No APK file uploaded yet. Android users will not see the download option until an APK is uploaded.'}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Delete APK Confirmation Dialog */}
+          <Dialog open={apkDeleteDialog} onOpenChange={setApkDeleteDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t(locale, 'admin.settings.deleteApk') || 'Delete APK?'}</DialogTitle>
+                <DialogDescription>
+                  {t(locale, 'admin.settings.deleteApkConfirm') || `Are you sure you want to delete "${apkToDelete}"? This action cannot be undone.`}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setApkDeleteDialog(false)}>
+                  {t(locale, 'admin.common.cancel') || 'Cancel'}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    if (!apkToDelete) return;
+                    setApkLoading(true);
+                    setApkError('');
+                    setApkSuccess('');
+                    try {
+                      await api.delete(`/admin/apk/${encodeURIComponent(apkToDelete)}`);
+                      setApkSuccess(t(locale, 'admin.settings.apkDeleteSuccess') || 'APK deleted successfully');
+                      setApkDeleteDialog(false);
+                      setApkToDelete(null);
+                      // Reload APK info
+                      const response = await api.get('/admin/apk');
+                      if (response.data?.available) {
+                        setApkInfo(response.data);
+                      } else {
+                        setApkInfo(null);
+                      }
+                    } catch (err) {
+                      setApkError(err.response?.data?.error || t(locale, 'admin.settings.apkDeleteFailed') || 'Failed to delete APK');
+                    } finally {
+                      setApkLoading(false);
+                    }
+                  }}
+                  disabled={apkLoading}
+                >
+                  {apkLoading ? (
+                    <>
+                      <span className="animate-spin mr-2">⏳</span>
+                      {t(locale, 'admin.settings.deleting') || 'Deleting...'}
+                    </>
+                  ) : (
+                    <>
+                      <FaTrash className="mr-2 h-4 w-4" />
+                      {t(locale, 'admin.common.delete') || 'Delete'}
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Restore Section */}
           <Card className="border-2 hover:border-destructive/50 transition-colors">

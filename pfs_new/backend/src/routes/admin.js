@@ -22,10 +22,23 @@ import {
   createQuestion,
   updateQuestion,
   deleteQuestion,
-  uploadQuestionAudio
+  uploadQuestionAudio,
+  getLogo,
+  updateLogo,
+  resetLogo,
+  getAppIcon,
+  updateAppIcon,
+  resetAppIcon,
+  getDevices,
+  createDevice,
+  updateDevice,
+  deleteDevice,
+  uploadApk,
+  getApkInfo,
+  deleteApk
 } from '../controllers/adminController.js';
 import { backupData, restoreData, verifyRestore, upload as backupUpload } from '../controllers/backupController.js';
-import { uploadAudio } from '../middleware/upload.js';
+import { uploadAudio, uploadImage, uploadApk as uploadApkMiddleware } from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -68,6 +81,25 @@ router.post('/questions/upload-audio', uploadAudio.single('audio'), uploadQuesti
 router.get('/backup', backupData);
 router.post('/restore/verify', backupUpload.single('file'), verifyRestore);
 router.post('/restore', backupUpload.single('file'), restoreData);
+
+// Settings routes
+router.get('/settings/logo', getLogo);
+router.post('/settings/logo', uploadImage.single('logo'), updateLogo);
+router.delete('/settings/logo', resetLogo);
+router.get('/settings/app-icon', getAppIcon);
+router.post('/settings/app-icon', uploadImage.single('icon'), updateAppIcon);
+router.delete('/settings/app-icon', resetAppIcon);
+
+// Devices routes
+router.get('/devices', getDevices);
+router.post('/devices', createDevice);
+router.put('/devices/:id', updateDevice);
+router.delete('/devices/:id', deleteDevice);
+
+// APK Management routes
+router.get('/apk', getApkInfo);
+router.post('/apk', uploadApkMiddleware.single('apk'), uploadApk);
+router.delete('/apk/:filename', deleteApk);
 
 export default router;
 

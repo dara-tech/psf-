@@ -75,6 +75,10 @@ export const useUIStore = create(
               root.style.setProperty('--primary-l', `${l}%`);
               root.style.setProperty('--primary', customColor);
               root.style.setProperty('--ring', customColor);
+              // Sync sidebar accent color to theme
+              root.style.setProperty('--sidebar-primary', customColor);
+              root.style.setProperty('--sidebar-primary-foreground', isDark ? '0 0% 9%' : '0 0% 98%');
+              root.style.setProperty('--sidebar-ring', customColor);
               
               // Create gradients based on the custom color
               const gradientStart = `${h} ${s}% ${isDark ? Math.min(l + 10, 100) : l}%`;
@@ -140,11 +144,16 @@ export const useUIStore = create(
         const activeGradients = isDark ? colors.gradients.dark : colors.gradients.light;
         
         // Update CSS variables for primary color
+        const primaryValue = `${activeColors.h} ${activeColors.s}% ${activeColors.l}%`;
         root.style.setProperty('--primary-h', activeColors.h);
         root.style.setProperty('--primary-s', `${activeColors.s}%`);
         root.style.setProperty('--primary-l', `${activeColors.l}%`);
-        root.style.setProperty('--primary', `${activeColors.h} ${activeColors.s}% ${activeColors.l}%`);
-        root.style.setProperty('--ring', `${activeColors.h} ${activeColors.s}% ${activeColors.l}%`);
+        root.style.setProperty('--primary', primaryValue);
+        root.style.setProperty('--ring', primaryValue);
+        // Sync sidebar colors to theme so sidebar reflects chosen color
+        root.style.setProperty('--sidebar-primary', primaryValue);
+        root.style.setProperty('--sidebar-primary-foreground', isDark ? '0 0% 9%' : '0 0% 98%');
+        root.style.setProperty('--sidebar-ring', primaryValue);
         
         // Always update gradient colors based on theme when selecting a theme
         // This ensures theme-based gradients are applied

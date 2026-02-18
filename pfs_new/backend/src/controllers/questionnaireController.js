@@ -288,6 +288,16 @@ export const saveClientPage = async (req, res) => {
     const { token, index } = req.params;
     const { locale = 'kh', _uri, ...formData } = req.body;
 
+    console.log('[SaveClientPage] Received request:', {
+      token,
+      index,
+      locale,
+      _uri,
+      hasUri: !!_uri,
+      bodyKeys: Object.keys(req.body),
+      formDataKeys: Object.keys(formData)
+    });
+
     if (!await verifyToken(token)) {
       return res.status(404).json({ error: 'Invalid token' });
     }
@@ -324,10 +334,27 @@ export const saveClientPage = async (req, res) => {
 // Save consent
 const saveConsent = async (req, res, token, tokenInfo, locale, _uri, formData) => {
   try {
+    console.log('[SaveConsent] Starting save:', {
+      _uri,
+      hasUri: !!_uri,
+      consent: formData.consent,
+      formDataKeys: Object.keys(formData),
+      token,
+      username: tokenInfo.username
+    });
+
+    if (!_uri) {
+      console.error('[SaveConsent] ❌ ERROR: _uri is missing! Cannot save consent.');
+      return res.status(400).json({ error: 'Missing _uri (UUID) required for consent' });
+    }
+
     let userData = await UserData.findByPk(_uri);
     
     if (!userData) {
+      console.log('[SaveConsent] Creating new UserData with _URI:', _uri);
       userData = UserData.build({ _URI: _uri });
+    } else {
+      console.log('[SaveConsent] Found existing UserData:', { _URI: userData._URI });
     }
 
     userData.ACKNOWLEDGE = formData.consent;
@@ -342,7 +369,15 @@ const saveConsent = async (req, res, token, tokenInfo, locale, _uri, formData) =
       userData._SUBMISSION_DATE = new Date();
     }
     
+    console.log('[SaveConsent] About to save UserData:', {
+      _URI: userData._URI,
+      ACKNOWLEDGE: userData.ACKNOWLEDGE,
+      USERNAME: userData.USERNAME,
+      _IS_COMPLETE: userData._IS_COMPLETE
+    });
+    
     await userData.save();
+    console.log('[SaveConsent] ✅ UserData saved successfully');
 
     // Reload userData to ensure we have the latest data from database
     await userData.reload();

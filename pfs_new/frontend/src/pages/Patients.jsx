@@ -44,17 +44,7 @@ export default function Patients() {
     fetchDashboard();
   }, []);
 
-  // Auto-select first period and fetch data when periods are loaded
-  useEffect(() => {
-    if (availablePeriods.length > 0 && filters.periods.length === 0) {
-      const firstPeriod = availablePeriods[0].value;
-      const updatedFilters = { ...filters, periods: [firstPeriod] };
-      setFilters(updatedFilters);
-      // Fetch dashboard with the first period
-      fetchDashboardWithFilters(updatedFilters);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availablePeriods]);
+  // Periods are loaded from API; no default period is auto-selected (user must select)
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -169,7 +159,27 @@ export default function Patients() {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    setFilters(prev => {
+      const updated = { ...prev, [key]: value };
+      
+      // Reset dependent filters when parent changes
+      if (key === 'provinces') {
+        // When province changes to 'all' or empty, reset sites and kps
+        const isProvinceEmpty = !value || (Array.isArray(value) && value.length === 0);
+        if (isProvinceEmpty) {
+          updated.sites = ['*'];
+          updated.kps = [];
+        }
+      } else if (key === 'sites') {
+        // When sites changes to '*', reset kps
+        const isSitesAll = Array.isArray(value) && value.length > 0 && value[0] === '*';
+        if (isSitesAll || !value || (Array.isArray(value) && value.length === 0)) {
+          updated.kps = [];
+        }
+      }
+      
+      return updated;
+    });
   };
 
   const handleApplyFilters = () => {
@@ -196,67 +206,81 @@ export default function Patients() {
     return totalCount > 0 ? Math.round((totalValue / totalCount) * 100) : 0;
   };
 
-  // Aggregate platform chart data (Tablet vs QR Code)
-  const getAggregatedPlatformData = () => {
+  // Platform chart: show one row per period with Tablet and QR Code as grouped bars
+  const getPlatformDataByPeriod = () => {
     if (!dashboardData?.platformChart || dashboardData.platformChart.length === 0) return null;
-    const totalTablet = aggregateData(dashboardData.platformChart, 'odk');
-    const totalQR = aggregateData(dashboardData.platformChart, 'online');
-    return [
-      { name: locale === 'kh' ? 'Tablet' : 'Tablet', value: totalTablet },
-      { name: locale === 'kh' ? 'QR Code' : 'QR Code', value: totalQR }
-    ];
+    return dashboardData.platformChart.map((item) => ({
+      name: item.quarter,
+      Tablet: item.odk ?? 0,
+      'QR Code': item.online ?? 0
+    }));
   };
 
-  // Aggregate provider satisfaction data
-  const getAggregatedProviderSatisfaction = () => {
+  const platformBars = [
+    { dataKey: 'Tablet', label: locale === 'kh' ? 'Tablet' : 'Tablet' },
+    { dataKey: 'QR Code', label: locale === 'kh' ? 'QR Code' : 'QR Code' }
+  ];
+
+  // Provider (patient ART) satisfaction: one row per period, grouped bars per category
+  const getProviderSatisfactionByPeriod = () => {
     if (!dashboardData?.providerSatisfactionChart || dashboardData.providerSatisfactionChart.length === 0) return null;
-    const data = dashboardData.providerSatisfactionChart;
-    // Calculate average percentages
-    const avgOverall = Math.round(data.reduce((sum, item) => sum + (item.overall || 0), 0) / data.length);
-    const avgReceptionist = Math.round(data.reduce((sum, item) => sum + (item.receptionist || 0), 0) / data.length);
-    const avgCounselor = Math.round(data.reduce((sum, item) => sum + (item.counselor || 0), 0) / data.length);
-    const avgDoctor = Math.round(data.reduce((sum, item) => sum + (item.doctor || 0), 0) / data.length);
-    const avgPharmacist = Math.round(data.reduce((sum, item) => sum + (item.pharmacist || 0), 0) / data.length);
-    
-    return [
-      { name: locale === 'kh' ? 'ការពេញចិត្តជារួម' : 'Overall Satisfaction', value: avgOverall },
-      { name: locale === 'kh' ? 'អ្នកទទួលចុះឈ្មោះ' : 'Registrar/Receptionist', value: avgReceptionist },
-      { name: locale === 'kh' ? 'អ្នកផ្តល់ប្រឹក្សា' : 'Counselor', value: avgCounselor },
-      { name: locale === 'kh' ? 'គ្រូពេទ្យ' : 'Doctor', value: avgDoctor },
-      { name: locale === 'kh' ? 'ឱសថការី' : 'Pharmacist', value: avgPharmacist }
-    ];
+    return dashboardData.providerSatisfactionChart.map((item) => ({
+      name: item.quarter,
+      overall: item.overall ?? 0,
+      receptionist: item.receptionist ?? 0,
+      counselor: item.counselor ?? 0,
+      doctor: item.doctor ?? 0,
+      pharmacist: item.pharmacist ?? 0
+    }));
   };
 
-  // Aggregate service satisfaction data (Quality of Care)
-  const getAggregatedServiceQuality = () => {
+  const providerSatisfactionBars = [
+    { dataKey: 'overall', label: locale === 'kh' ? 'ការពេញចិត្តជារួម' : 'Overall' },
+    { dataKey: 'receptionist', label: locale === 'kh' ? 'អ្នកទទួលចុះឈ្មោះ' : 'Registrar' },
+    { dataKey: 'counselor', label: locale === 'kh' ? 'អ្នកផ្តល់ប្រឹក្សា' : 'Counselor' },
+    { dataKey: 'doctor', label: locale === 'kh' ? 'គ្រូពេទ្យ' : 'Doctor' },
+    { dataKey: 'pharmacist', label: locale === 'kh' ? 'ឱសថការី' : 'Pharmacist' }
+  ];
+
+  // Service quality (Quality of Care): one row per period
+  const getServiceQualityByPeriod = () => {
     if (!dashboardData?.serviceSatisfactionChart || dashboardData.serviceSatisfactionChart.length === 0) return null;
-    const data = dashboardData.serviceSatisfactionChart;
-    // For quality of care, we'll use service satisfaction data but map to quality metrics
-    const avgCounseling = Math.round(data.reduce((sum, item) => sum + (item.anc || 0), 0) / data.length);
-    const avgPhysical = Math.round(data.reduce((sum, item) => sum + (item.lab || 0), 0) / data.length);
-    const avgBloodTest = Math.round(data.reduce((sum, item) => sum + (item.lab || 0), 0) / data.length);
-    const avgMedication = Math.round(data.reduce((sum, item) => sum + (item.psycho || 0), 0) / data.length);
-    
-    return [
-      { name: locale === 'kh' ? 'ការប្រឹក្សាយោបល់' : 'Counseling', value: avgCounseling },
-      { name: locale === 'kh' ? 'ការពិនិត្យរាងកាយ' : 'Physical Examination', value: avgPhysical },
-      { name: locale === 'kh' ? 'ការធ្វើតេស្តឈាម' : 'Blood Test', value: avgBloodTest },
-      { name: locale === 'kh' ? 'ការផ្តល់ថ្នាំ' : 'Medication Dispensing', value: avgMedication }
-    ];
+    return dashboardData.serviceSatisfactionChart.map((item) => ({
+      name: item.quarter,
+      counseling: item.anc ?? 0,
+      physical: item.lab ?? 0,
+      bloodTest: item.lab ?? 0,
+      medication: item.psycho ?? 0
+    }));
   };
 
-  // Aggregate other services satisfaction
-  const getAggregatedOtherServices = () => {
+  const serviceQualityBars = [
+    { dataKey: 'counseling', label: locale === 'kh' ? 'ការប្រឹក្សាយោបល់' : 'Counseling' },
+    { dataKey: 'physical', label: locale === 'kh' ? 'ការពិនិត្យរាងកាយ' : 'Physical' },
+    { dataKey: 'bloodTest', label: locale === 'kh' ? 'ការធ្វើតេស្តឈាម' : 'Blood Test' },
+    { dataKey: 'medication', label: locale === 'kh' ? 'ការផ្តល់ថ្នាំ' : 'Medication' }
+  ];
+
+  // Other services satisfaction: one row per period
+  const getOtherServicesByPeriod = () => {
     if (!dashboardData?.serviceSatisfactionChart || dashboardData.serviceSatisfactionChart.length === 0) return null;
-    const data = dashboardData.serviceSatisfactionChart;
-    return [
-      { name: locale === 'kh' ? 'សុខភាពផ្លូវចិត្ត' : 'Mental Health', value: Math.round(data.reduce((sum, item) => sum + (item.psycho || 0), 0) / data.length) },
-      { name: locale === 'kh' ? 'មន្ទីរពិសោធន៍' : 'Laboratory', value: Math.round(data.reduce((sum, item) => sum + (item.lab || 0), 0) / data.length) },
-      { name: locale === 'kh' ? 'ការប្រឹក្សាយោបល់' : 'Counseling', value: Math.round(data.reduce((sum, item) => sum + (item.anc || 0), 0) / data.length) },
-      { name: locale === 'kh' ? 'ការប្រឹក្សាយោបល់ភ្នែក' : 'Eye Counseling', value: Math.round(data.reduce((sum, item) => sum + (item.sti || 0), 0) / data.length) },
-      { name: locale === 'kh' ? 'ការប្រឹក្សាយោបល់ចិត្តសាស្ត្រ' : 'Psychological Counseling', value: Math.round(data.reduce((sum, item) => sum + (item.psycho || 0), 0) / data.length) }
-    ];
+    return dashboardData.serviceSatisfactionChart.map((item) => ({
+      name: item.quarter,
+      mentalHealth: item.psycho ?? 0,
+      laboratory: item.lab ?? 0,
+      counseling: item.anc ?? 0,
+      eyeCounseling: item.sti ?? 0,
+      psycho: item.psycho ?? 0
+    }));
   };
+
+  const otherServicesBars = [
+    { dataKey: 'mentalHealth', label: locale === 'kh' ? 'សុខភាពផ្លូវចិត្ត' : 'Mental Health' },
+    { dataKey: 'laboratory', label: locale === 'kh' ? 'មន្ទីរពិសោធន៍' : 'Laboratory' },
+    { dataKey: 'counseling', label: locale === 'kh' ? 'ការប្រឹក្សាយោបល់' : 'Counseling' },
+    { dataKey: 'eyeCounseling', label: locale === 'kh' ? 'ការប្រឹក្សាយោបល់ភ្នែក' : 'Eye' },
+    { dataKey: 'psycho', label: locale === 'kh' ? 'ចិត្តសាស្ត្រ' : 'Psychological' }
+  ];
 
   return (
     <div className="min-h-screen">
@@ -352,44 +376,7 @@ export default function Patients() {
                 </Select>
               </div>
             </div>
-            <div className="flex-1 min-w-[160px] space-y-2">
-              <Label htmlFor="sites" className="text-sm font-semibold text-foreground">{t(locale, 'admin.common.sites')}</Label>
-              <Select
-                value={filters.sites[0] || '*'}
-                onValueChange={(value) => handleFilterChange('sites', [value])}
-              >
-                <SelectTrigger id="sites" className="border-primary/20 hover:border-primary/40 focus:ring-primary/20 transition-all duration-200 bg-background/50 backdrop-blur-sm">
-                  <SelectValue placeholder={t(locale, 'admin.common.selectSite')} />
-                </SelectTrigger>
-                <SelectContent className="backdrop-blur-sm bg-card border-primary/10">
-                  <SelectItem value="*">{t(locale, 'admin.common.allSites')}</SelectItem>
-                  {availableSites.map((site) => (
-                    <SelectItem key={site} value={site} className="hover:bg-primary/10 focus:bg-primary/10">
-                      {site}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1 min-w-[160px] space-y-2">
-              <Label htmlFor="kps" className="text-sm font-semibold text-foreground">{t(locale, 'admin.common.keyPopulation')}</Label>
-              <Select
-                value={filters.kps[0] || 'all'}
-                onValueChange={(value) => handleFilterChange('kps', value === 'all' ? [] : [value])}
-              >
-                <SelectTrigger id="kps" className="border-primary/20 hover:border-primary/40 focus:ring-primary/20 transition-all duration-200 bg-background/50 backdrop-blur-sm">
-                  <SelectValue placeholder={t(locale, 'admin.common.selectKP')} />
-                </SelectTrigger>
-                <SelectContent className="backdrop-blur-sm bg-card border-primary/10">
-                  <SelectItem value="all">{t(locale, 'admin.common.all')}</SelectItem>
-                  {Object.entries(availableKPs).map(([key, label]) => (
-                    <SelectItem key={key} value={key} className="hover:bg-primary/10 focus:bg-primary/10">
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Province filter - First */}
             <div className="flex-1 min-w-[160px] space-y-2">
               <Label htmlFor="provinces" className="text-sm font-semibold text-foreground">{t(locale, 'admin.common.province')}</Label>
               <Select
@@ -413,6 +400,48 @@ export default function Patients() {
                         {label}
                       </SelectItem>
                     ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Sites (Place) filter - Second, disabled until province is selected */}
+            <div className="flex-1 min-w-[160px] space-y-2">
+              <Label htmlFor="sites" className="text-sm font-semibold text-foreground">{t(locale, 'admin.common.sites')}</Label>
+              <Select
+                value={filters.sites[0] || '*'}
+                onValueChange={(value) => handleFilterChange('sites', [value])}
+                disabled={!filters.provinces || filters.provinces.length === 0 || filters.provinces[0] === 'all'}
+              >
+                <SelectTrigger id="sites" className="border-primary/20 hover:border-primary/40 focus:ring-primary/20 transition-all duration-200 bg-background/50 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                  <SelectValue placeholder={t(locale, 'admin.common.selectSite')} />
+                </SelectTrigger>
+                <SelectContent className="backdrop-blur-sm bg-card border-primary/10">
+                  <SelectItem value="*">{t(locale, 'admin.common.allSites')}</SelectItem>
+                  {availableSites.map((site) => (
+                    <SelectItem key={site} value={site} className="hover:bg-primary/10 focus:bg-primary/10">
+                      {site}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Key Population (Type) filter - Third, disabled until site is selected */}
+            <div className="flex-1 min-w-[160px] space-y-2">
+              <Label htmlFor="kps" className="text-sm font-semibold text-foreground">{t(locale, 'admin.common.keyPopulation')}</Label>
+              <Select
+                value={filters.kps[0] || 'all'}
+                onValueChange={(value) => handleFilterChange('kps', value === 'all' ? [] : [value])}
+                disabled={!filters.sites || filters.sites.length === 0 || filters.sites[0] === '*'}
+              >
+                <SelectTrigger id="kps" className="border-primary/20 hover:border-primary/40 focus:ring-primary/20 transition-all duration-200 bg-background/50 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                  <SelectValue placeholder={t(locale, 'admin.common.selectKP')} />
+                </SelectTrigger>
+                <SelectContent className="backdrop-blur-sm bg-card border-primary/10">
+                  <SelectItem value="all">{t(locale, 'admin.common.all')}</SelectItem>
+                  {Object.entries(availableKPs).map(([key, label]) => (
+                    <SelectItem key={key} value={key} className="hover:bg-primary/10 focus:bg-primary/10">
+                      {label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -458,16 +487,15 @@ export default function Patients() {
               <Label htmlFor="byMonth" className="cursor-pointer text-sm font-medium whitespace-nowrap">{t(locale, 'admin.common.byMonth')}</Label>
             </div>
 
-            <Button 
-              onClick={handleApplyFilters} 
-              className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 text-white font-semibold px-8 py-2.5 rounded-lg h-[42px] whitespace-nowrap"
+            <Button
+              onClick={handleApplyFilters}
+              variant="default"
+              className="gap-2 shadow-md hover:shadow-lg transition-shadow h-[42px] whitespace-nowrap"
             >
-              <span className="flex items-center gap-2">
-                {t(locale, 'admin.common.applyFilters')}
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </span>
+              {t(locale, 'admin.common.applyFilters')}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
             </Button>
           </div>
         </CardContent>
@@ -490,57 +518,61 @@ export default function Patients() {
       ) : dashboardData ? (
         <div className="space-y-6">
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-          {/* Number of Participants Chart */}
-          {getAggregatedPlatformData() && (
+          {/* Number of Participants Chart - one bar group per period */}
+          {getPlatformDataByPeriod() && (
             <ChartCard
               title={locale === 'kh' ? 'ចំនួនអ្នកចូលរួម' : 'Number of Participants'}
-              data={getAggregatedPlatformData()}
-              dataKey="value"
+              data={getPlatformDataByPeriod()}
+              nameKey="name"
               colorIndex={0}
               locale={locale}
               defaultChartType="bar"
+              bars={platformBars}
             />
           )}
 
-          {/* Patient Satisfaction (ART Service) % */}
-          {getAggregatedProviderSatisfaction() && (
+          {/* Patient Satisfaction (ART Service) % - one bar group per period */}
+          {getProviderSatisfactionByPeriod() && (
             <ChartCard
               title={locale === 'kh' ? 'ការពេញចិត្តរបស់អ្នកជំងឺ (សេវា ART) %' : 'Patient Satisfaction (ART Service) %'}
-              data={getAggregatedProviderSatisfaction()}
-              dataKey="value"
+              data={getProviderSatisfactionByPeriod()}
+              nameKey="name"
               colorIndex={1}
-              angle={-45}
+              angle={0}
               domain={[0, 100]}
               locale={locale}
               defaultChartType="bar"
+              bars={providerSatisfactionBars}
             />
           )}
 
-          {/* Quality of Care Service % */}
-          {getAggregatedServiceQuality() && (
+          {/* Quality of Care Service % - one bar group per period */}
+          {getServiceQualityByPeriod() && (
             <ChartCard
               title={locale === 'kh' ? 'គុណភាពនៃសេវាថែទាំ %' : 'Quality of Care Service %'}
-              data={getAggregatedServiceQuality()}
-              dataKey="value"
+              data={getServiceQualityByPeriod()}
+              nameKey="name"
               colorIndex={2}
-              angle={-45}
+              angle={0}
               domain={[0, 100]}
               locale={locale}
               defaultChartType="bar"
+              bars={serviceQualityBars}
             />
           )}
 
-          {/* Patient Satisfaction (Other Services) % */}
-          {getAggregatedOtherServices() && (
+          {/* Patient Satisfaction (Other Services) % - one bar group per period */}
+          {getOtherServicesByPeriod() && (
             <ChartCard
               title={locale === 'kh' ? 'ការពេញចិត្តរបស់អ្នកជំងឺ (សេវាផ្សេងទៀត) %' : 'Patient Satisfaction (Other Services) %'}
-              data={getAggregatedOtherServices()}
-              dataKey="value"
+              data={getOtherServicesByPeriod()}
+              nameKey="name"
               colorIndex={3}
-              angle={-45}
+              angle={0}
               domain={[0, 100]}
               locale={locale}
               defaultChartType="bar"
+              bars={otherServicesBars}
             />
           )}
           </div>

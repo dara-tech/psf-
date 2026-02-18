@@ -11,6 +11,7 @@ import Users from './pages/Users';
 import Permissions from './pages/Permissions';
 import Roles from './pages/Roles';
 import Sites from './pages/Sites';
+import Devices from './pages/Devices';
 import QuestionManager from './pages/QuestionManager';
 import ChangePassword from './pages/ChangePassword';
 import Settings from './pages/Settings';
@@ -58,6 +59,7 @@ function App() {
                   <Route path="/permissions" element={<Permissions />} />
                   <Route path="/roles" element={<Roles />} />
                   <Route path="/sites" element={<Sites />} />
+                  <Route path="/devices" element={<Devices />} />
                   <Route path="/questions" element={<QuestionManager />} />
                   <Route path="/survey-analysis" element={<SurveyAnalysis />} />
                   <Route path="/qr-codes" element={<QRCodeGenerator />} />

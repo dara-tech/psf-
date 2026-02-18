@@ -14,10 +14,11 @@ import { Textarea } from '../components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
-import { FaPlus, FaTrash, FaEdit, FaQuestionCircle, FaVolumeUp } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaEdit, FaQuestionCircle, FaVolumeUp, FaFileExcel, FaCheckCircle } from 'react-icons/fa';
 import { t } from '../lib/translations/index';
 import api from '../lib/api';
 import AudioRecorder from '../components/AudioRecorder';
+import * as XLSX from 'xlsx';
 
 export default function QuestionManager() {
   const { locale } = useUIStore();
@@ -201,6 +202,38 @@ export default function QuestionManager() {
     ? questions 
     : questions.filter(q => q.questionnaire_type === activeTab);
 
+  const handleExportToExcel = () => {
+    if (filteredQuestions.length === 0) return;
+    const headers = [
+      t(locale, 'admin.questions.questionKey'),
+      t(locale, 'admin.questions.type'),
+      t(locale, 'admin.questions.section'),
+      t(locale, 'admin.questions.questionType'),
+      t(locale, 'admin.questions.textEn'),
+      t(locale, 'admin.questions.textKh'),
+      t(locale, 'admin.questions.order'),
+      t(locale, 'admin.questions.status'),
+    ];
+    const rows = filteredQuestions
+      .sort((a, b) => a.order - b.order)
+      .map((q) => [
+        q.question_key,
+        q.questionnaire_type === 'client' ? t(locale, 'admin.questions.client') : t(locale, 'admin.questions.provider'),
+        q.section,
+        q.question_type,
+        q.text_en ?? '',
+        q.text_kh ?? '',
+        q.order,
+        q.is_active ? t(locale, 'admin.common.active') : t(locale, 'admin.common.inactive'),
+      ]);
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, locale === 'kh' ? 'សំណួរ' : 'Questions');
+    const fileName = `questions-export-${activeTab}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -219,13 +252,23 @@ export default function QuestionManager() {
             {t(locale, 'admin.questions.description')}
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={handleNew}>
-              <FaPlus className="mr-2" />
-              {t(locale, 'admin.questions.addQuestion')}
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExportToExcel}
+            disabled={filteredQuestions.length === 0}
+            title={filteredQuestions.length === 0 ? (locale === 'kh' ? 'មិនមានទិន្នន័យដើម្បីនាំចេញ' : 'No data to export') : undefined}
+          >
+            <FaFileExcel className="mr-2 h-4 w-4 text-green-600" />
+            {t(locale, 'admin.questions.exportToExcel')}
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={handleNew}>
+                <FaPlus className="mr-2" />
+                {t(locale, 'admin.questions.addQuestion')}
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
@@ -467,7 +510,8 @@ export default function QuestionManager() {
               </DialogFooter>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

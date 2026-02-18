@@ -248,14 +248,15 @@ export default function Reporting() {
             </div>
         </div>
           <div className="flex items-center gap-2 sm:ml-4">
-            <Button 
-              onClick={handleExport} 
-              className="gap-2 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 text-white font-semibold px-6 py-2.5 rounded-lg" 
+            <Button
+              onClick={handleExport}
+              variant="default"
+              className="gap-2 shadow-md hover:shadow-lg transition-shadow"
               disabled={displayData.length === 0 || filterLoading}
             >
-            <FaDownload className="h-4 w-4" />
-            {t(locale, 'admin.common.exportCSV')}
-          </Button>
+              <FaDownload className="h-4 w-4" />
+              {t(locale, 'admin.common.exportCSV')}
+            </Button>
           </div>
         </div>
       </div>
@@ -330,8 +331,9 @@ export default function Reporting() {
             </div>
             
             <Button 
-              onClick={handleFilter} 
-              className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 text-white font-semibold px-8 py-2.5 rounded-lg h-[42px] whitespace-nowrap"
+              onClick={handleFilter}
+              variant="default"
+              className="gap-2 shadow-md hover:shadow-lg transition-shadow h-[42px] whitespace-nowrap"
               disabled={filterLoading || !startDate || !endDate}
             >
               {filterLoading ? (

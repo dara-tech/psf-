@@ -140,7 +140,8 @@ export default function HFS() {
           <div className="flex items-center gap-2 sm:ml-4">
             <Button
               onClick={handleExport}
-              className="gap-2 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 text-white font-semibold px-6 py-2.5 rounded-lg"
+              variant="default"
+              className="gap-2 shadow-md hover:shadow-lg transition-shadow"
               disabled={displayData.length === 0 || filterLoading}
             >
               <FaFileExport className="h-4 w-4" />
@@ -229,8 +230,9 @@ export default function HFS() {
             <div className="flex items-center gap-3">
               <Button
                 onClick={handleFilter}
+                variant="default"
                 disabled={filterLoading}
-                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                className="gap-2 shadow-md hover:shadow-lg transition-shadow"
               >
                 {filterLoading ? (
                   <>

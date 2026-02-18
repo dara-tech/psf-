@@ -39,14 +39,7 @@ export default function HFSDashboard() {
     fetchDashboard();
   }, []);
 
-  // Auto-select first period and fetch data when periods are loaded
-  useEffect(() => {
-    if (availablePeriods.length > 0 && filters.periods.length === 0) {
-      const firstPeriod = availablePeriods[0].value || availablePeriods[0];
-      setFilters(prev => ({ ...prev, periods: [firstPeriod] }));
-      fetchDashboardWithFilters({ ...filters, periods: [firstPeriod] });
-    }
-  }, [availablePeriods]);
+  // Periods are loaded from API; no default period is auto-selected (user must select)
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -121,6 +114,16 @@ export default function HFSDashboard() {
 
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
+    
+    // Reset dependent filters when parent changes
+    if (key === 'provinces') {
+      // When province changes to 'all' or empty, reset sites
+      const isProvinceEmpty = !value || (Array.isArray(value) && value.length === 0);
+      if (isProvinceEmpty) {
+        newFilters.sites = ['*'];
+      }
+    }
+    
     setFilters(newFilters);
   };
 
@@ -334,8 +337,9 @@ export default function HFSDashboard() {
               <Select
                 value={filters.sites[0] || '*'}
                 onValueChange={(value) => handleFilterChange('sites', value === '*' ? ['*'] : [value])}
+                disabled={!filters.provinces || filters.provinces.length === 0 || filters.provinces[0] === 'all'}
               >
-                <SelectTrigger className="border-primary/20 hover:border-primary/40 focus:ring-primary/20 transition-all duration-200 bg-background/50 backdrop-blur-sm">
+                <SelectTrigger className="border-primary/20 hover:border-primary/40 focus:ring-primary/20 transition-all duration-200 bg-background/50 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed">
                   <SelectValue placeholder={locale === 'kh' ? 'ជ្រើសរើសមន្ទីរពេទ្យ' : 'Select hospital'} />
                 </SelectTrigger>
                 <SelectContent className="backdrop-blur-sm bg-card border-primary/10">
@@ -360,16 +364,15 @@ export default function HFSDashboard() {
               </Label>
             </div>
 
-            <Button 
-              onClick={handleApplyFilters} 
-              className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 text-white font-semibold px-8 py-2.5 rounded-lg h-[42px] whitespace-nowrap"
+            <Button
+              onClick={handleApplyFilters}
+              variant="default"
+              className="gap-2 shadow-md hover:shadow-lg transition-shadow h-[42px] whitespace-nowrap"
             >
-              <span className="flex items-center gap-2">
-                {locale === 'kh' ? 'អនុវត្តតម្រង' : 'Apply Filters'}
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </span>
+              {locale === 'kh' ? 'អនុវត្តតម្រង' : 'Apply Filters'}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
             </Button>
           </div>
         </CardContent>

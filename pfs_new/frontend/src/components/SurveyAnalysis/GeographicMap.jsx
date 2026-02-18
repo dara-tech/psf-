@@ -676,7 +676,7 @@ export default function GeographicMap({ surveyData, locale, filteredData = [] })
                               </div>
                             ))}
                             {location.sites.length > 8 && (
-                              <div className={`text-xs text-muted-foreground italic pt-1 ${locale === 'kh' ? 'font-khmer' : ''}`}>
+                              <div className={`text-xs text-muted-foreground pt-1 ${locale === 'kh' ? 'font-khmer' : ''}`}>
                                 +{location.sites.length - 8} {locale === 'kh' ? 'ផ្សេងទៀត' : 'more sites'}
                               </div>
                             )}

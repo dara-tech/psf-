@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
-import { FaDownload, FaInfoCircle } from 'react-icons/fa';
+import { FaDownload, FaInfoCircle, FaAndroid } from 'react-icons/fa';
 import { useUIStore } from '../lib/stores/uiStore';
 import { t } from '../lib/translations/index';
+import api from '../lib/api';
 
 export default function InstallAppButton() {
   const { locale } = useUIStore();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showSafariDialog, setShowSafariDialog] = useState(false);
+  const [apkInfo, setApkInfo] = useState(null);
+  const [loadingApk, setLoadingApk] = useState(false);
 
   useEffect(() => {
     // Check if app is already installed
@@ -23,6 +26,20 @@ export default function InstallAppButton() {
       setIsInstalled(true);
       return;
     }
+
+    // Check for APK availability (for Android users)
+    const checkApkAvailability = async () => {
+      try {
+        const response = await api.get('/api/downloads/apk/info');
+        if (response.data?.available) {
+          setApkInfo(response.data);
+        }
+      } catch (error) {
+        console.log('APK not available:', error.message);
+        // APK not available is not an error - just means no APK uploaded yet
+      }
+    };
+    checkApkAvailability();
 
     // Check if service worker is registered (indicates PWA is available)
     if ('serviceWorker' in navigator) {
@@ -71,11 +88,39 @@ export default function InstallAppButton() {
     const userAgent = navigator.userAgent;
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
     const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+    const isAndroid = /android/i.test(userAgent);
     const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
     const isChrome = /chrome/i.test(userAgent) && !/edg/i.test(userAgent);
     const isEdge = /edg/i.test(userAgent);
     
-    return { isMac, isIOS, isSafari, isChrome, isEdge };
+    return { isMac, isIOS, isAndroid, isSafari, isChrome, isEdge };
+  };
+
+  // Download APK file
+  const handleDownloadApk = async () => {
+    if (!apkInfo) return;
+    
+    setLoadingApk(true);
+    try {
+      const response = await api.get('/api/downloads/apk', {
+        responseType: 'blob'
+      });
+      
+      // Create a blob URL and trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', apkInfo.filename || 'psf-mobile.apk');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading APK:', error);
+      alert(locale === 'kh' ? 'មិនអាចទាញយក APK បានទេ' : 'Failed to download APK');
+    } finally {
+      setLoadingApk(false);
+    }
   };
 
   const handleInstallClick = async (e) => {
@@ -86,8 +131,14 @@ export default function InstallAppButton() {
     
     console.log('Install button clicked');
     
-    const { isMac, isIOS, isSafari } = detectBrowser();
-    console.log('Browser detection:', { isMac, isIOS, isSafari, deferredPrompt: !!deferredPrompt });
+    const { isMac, isIOS, isAndroid, isSafari } = detectBrowser();
+    console.log('Browser detection:', { isMac, isIOS, isAndroid, isSafari, deferredPrompt: !!deferredPrompt, apkAvailable: !!apkInfo });
+    
+    // For Android devices, if APK is available, show download option
+    if (isAndroid && apkInfo) {
+      handleDownloadApk();
+      return;
+    }
     
     // Always show dialog first for Safari or if no prompt available
     // Safari on Mac or iOS doesn't support beforeinstallprompt
@@ -133,8 +184,9 @@ export default function InstallAppButton() {
     return null;
   }
 
-  const { isMac, isIOS, isSafari } = detectBrowser();
+  const { isMac, isIOS, isAndroid, isSafari } = detectBrowser();
   const isSafariBrowser = (isMac && isSafari) || (isIOS && isSafari);
+  const showApkDownload = isAndroid && apkInfo;
 
   // Show button (will be visible unless app is installed)
   return (
@@ -145,12 +197,30 @@ export default function InstallAppButton() {
         variant="outline"
         size="sm"
         className="gap-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5 cursor-pointer"
-        title={locale === 'kh' ? 'ដំឡើងកម្មវិធី' : 'Install App'}
+        title={showApkDownload 
+          ? (locale === 'kh' ? 'ទាញយក APK' : 'Download APK')
+          : (locale === 'kh' ? 'ដំឡើងកម្មវិធី' : 'Install App')
+        }
+        disabled={loadingApk}
       >
-        <FaDownload className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">
-          {locale === 'kh' ? 'ដំឡើង' : 'Install'}
-        </span>
+        {showApkDownload ? (
+          <>
+            <FaAndroid className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">
+              {loadingApk 
+                ? (locale === 'kh' ? 'កំពុងទាញយក...' : 'Downloading...')
+                : (locale === 'kh' ? 'ទាញយក APK' : 'Download APK')
+              }
+            </span>
+          </>
+        ) : (
+          <>
+            <FaDownload className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">
+              {locale === 'kh' ? 'ដំឡើង' : 'Install'}
+            </span>
+          </>
+        )}
       </Button>
 
       {/* Safari Installation Instructions Dialog */}
@@ -279,6 +349,84 @@ export default function InstallAppButton() {
                         : 'Tap "Add"'}
                     </p>
                   </div>
+                </div>
+              </div>
+            ) : isAndroid && apkInfo ? (
+              // Android APK download instructions
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                  <FaAndroid className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  <div className="flex-1">
+                    <p className="font-medium text-green-900 dark:text-green-100">
+                      {locale === 'kh' ? 'APK អាចទាញយកបាន' : 'APK Available'}
+                    </p>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      {apkInfo.filename} ({apkInfo.sizeFormatted})
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                    1
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">
+                      {locale === 'kh'
+                        ? 'ចុចលើប៊ូតុង "Download APK"'
+                        : 'Click the "Download APK" button'}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {locale === 'kh'
+                        ? 'APK file នឹងចាប់ផ្តើមទាញយក'
+                        : 'The APK file will start downloading'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                    2
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">
+                      {locale === 'kh'
+                        ? 'បើក APK file បន្ទាប់ពីទាញយករួច'
+                        : 'Open the APK file after download'}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {locale === 'kh'
+                        ? 'អនុញ្ញាតការដំឡើងពី sources ដែលមិនស្គាល់ (Unknown Sources)'
+                        : 'Allow installation from unknown sources if prompted'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                    3
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">
+                      {locale === 'kh'
+                        ? 'ចុច "Install" ដើម្បីដំឡើងកម្មវិធី'
+                        : 'Tap "Install" to install the app'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <Button 
+                    onClick={handleDownloadApk} 
+                    className="w-full gap-2"
+                    disabled={loadingApk}
+                  >
+                    <FaAndroid className="h-4 w-4" />
+                    {loadingApk 
+                      ? (locale === 'kh' ? 'កំពុងទាញយក...' : 'Downloading...')
+                      : (locale === 'kh' ? 'ទាញយក APK' : 'Download APK')
+                    }
+                  </Button>
                 </div>
               </div>
             ) : (
