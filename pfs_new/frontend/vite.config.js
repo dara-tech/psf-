@@ -1,4 +1,4 @@
-// PSF frontend – Vite config (deploy trigger)
+// PSF frontend – Vite config
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
