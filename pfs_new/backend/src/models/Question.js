@@ -53,6 +53,12 @@ export const Question = sequelize.define('Question', {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: true
+  },
+  options: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Answer options for radio/checkbox: [{ value, text_en, text_kh, order }]'
   }
 }, {
   tableName: 'questions',

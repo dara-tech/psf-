@@ -322,7 +322,7 @@ export const kh = {
     },
     questions: {
       title: 'ការគ្រប់គ្រងសំណួរ',
-      description: 'គ្រប់គ្រងសំណួរស្ទើរស្ទាប់សម្រាប់អ្នកជំងឺ និងអ្នកផ្តល់សេវា',
+      description: 'គ្រប់គ្រងសំណួរ និងជម្រើសចម្លើយសម្រាប់ស្ទើរស្ទាប់អ្នកជំងឺ និងអ្នកផ្តល់សេវា',
       addQuestion: 'បន្ថែមសំណួរ',
       editQuestion: 'កែប្រែសំណួរ',
       formDescription: 'បង្កើត ឬកែប្រែសំណួរសម្រាប់ប្រព័ន្ធស្ទើរស្ទាប់',
@@ -348,6 +348,14 @@ export const kh = {
       noQuestionsDescription: 'ចាប់ផ្តើមដោយបង្កើតសំណួរដំបូងរបស់អ្នក។',
       areYouSureDelete: 'តើអ្នកប្រាកដថាចង់លុបសំណួរនេះទេ?',
       exportToExcel: 'នាំចេញទៅ Excel',
+      answerOptions: 'ជម្រើសចម្លើយ',
+      answerOptionsDescription: 'បន្ថែមជម្រើសសម្រាប់សំណួរជម្រើសតែមួយ ឬច្រើន។ តម្លៃរក្សាទុកក្នុងទិន្នន័យ អត្ថបទបង្ហាញដល់អ្នកប្រើ។',
+      optionValue: 'តម្លៃ',
+      addOption: 'បន្ថែមជម្រើស',
+      removeOption: 'យកចេញ',
+      answers: 'ជម្រើស',
+      answersOnlyForChoice: 'សម្រាប់សំណួរជម្រើសតែមួយ/ច្រើនប៉ុណ្ណោះ',
+      na: '—',
     },
     settings: {
       title: 'ការកំណត់អ្នកគ្រប់គ្រង',

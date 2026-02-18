@@ -322,7 +322,7 @@ export const en = {
     },
     questions: {
       title: 'Question Manager',
-      description: 'Manage questionnaire questions for client and provider surveys',
+      description: 'Manage questionnaire questions and their answer options for client and provider surveys',
       addQuestion: 'Add Question',
       editQuestion: 'Edit Question',
       formDescription: 'Create or edit a question for the questionnaire system',
@@ -348,6 +348,14 @@ export const en = {
       noQuestionsDescription: 'Get started by creating your first question.',
       areYouSureDelete: 'Are you sure you want to delete this question?',
       exportToExcel: 'Export to Excel',
+      answerOptions: 'Answer options',
+      answerOptionsDescription: 'Add options for radio/checkbox questions. Value is stored in data; text is shown to the user.',
+      optionValue: 'Value',
+      addOption: 'Add option',
+      removeOption: 'Remove',
+      answers: 'Options',
+      answersOnlyForChoice: 'Only for single/multiple choice questions',
+      na: '—',
     },
     settings: {
       title: 'Admin Settings',

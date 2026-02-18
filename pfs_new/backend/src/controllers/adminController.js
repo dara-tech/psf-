@@ -557,7 +557,12 @@ export const getQuestions = async (req, res) => {
     const questions = await Question.findAll({
       order: [['questionnaire_type', 'ASC'], ['order', 'ASC']]
     });
-    res.json({ questions });
+    // Ensure options is always present (can be missing if column not migrated yet)
+    const list = questions.map((q) => {
+      const row = q.get ? q.get({ plain: true }) : q;
+      return { ...row, options: row.options ?? null };
+    });
+    res.json({ questions: list });
   } catch (error) {
     console.error('Get questions error:', error);
     // If table doesn't exist, return empty array instead of error
@@ -580,7 +585,8 @@ export const createQuestion = async (req, res) => {
       order,
       isActive,
       audioUrlEn,
-      audioUrlKh
+      audioUrlKh,
+      options
     } = req.body;
 
     const question = await Question.create({
@@ -593,7 +599,8 @@ export const createQuestion = async (req, res) => {
       audio_url_en: audioUrlEn || null,
       audio_url_kh: audioUrlKh || null,
       order: order || 0,
-      is_active: isActive !== undefined ? isActive : true
+      is_active: isActive !== undefined ? isActive : true,
+      options: Array.isArray(options) ? options : null
     });
 
     res.json({ question, message: 'Question created successfully' });
@@ -620,7 +627,8 @@ export const updateQuestion = async (req, res) => {
       order,
       isActive,
       audioUrlEn,
-      audioUrlKh
+      audioUrlKh,
+      options
     } = req.body;
 
     const question = await Question.findByPk(id);
@@ -628,7 +636,7 @@ export const updateQuestion = async (req, res) => {
       return res.status(404).json({ error: 'Question not found' });
     }
 
-    await question.update({
+    const updatePayload = {
       question_key: questionKey,
       questionnaire_type: questionnaireType,
       section,
@@ -639,7 +647,12 @@ export const updateQuestion = async (req, res) => {
       audio_url_kh: audioUrlKh !== undefined ? audioUrlKh : question.audio_url_kh,
       order: order !== undefined ? order : question.order,
       is_active: isActive !== undefined ? isActive : question.is_active
-    });
+    };
+    if (options !== undefined) {
+      updatePayload.options = Array.isArray(options) ? options : null;
+    }
+
+    await question.update(updatePayload);
 
     res.json({ question, message: 'Question updated successfully' });
   } catch (error) {
